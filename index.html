@@ -861,7 +861,204 @@ let b=Math.max(0,(n&255)-amount);
 
 return `rgb(${r},${g},${b})`;
 }
+/* =========================
+   ABC BLAST - BACKGROUND MUSIC
+   Casual Match-3 Style
+========================= */
 
+let audioCtx = null;
+let musicTimer = null;
+let musicOn = false;
+let musicStep = 0;
+
+const notes = {
+  C4:261.63,
+  D4:293.66,
+  E4:329.63,
+  F4:349.23,
+  G4:392.00,
+  A4:440.00,
+  B4:493.88,
+  C5:523.25,
+  D5:587.33,
+  E5:659.25,
+  G5:783.99
+};
+
+/* Cheerful game melody */
+const melody = [
+  ["C5",0.18],["E5",0.18],["G5",0.25],["E5",0.18],
+  ["D5",0.18],["G5",0.18],["A5",0.25],["G5",0.18],
+  ["E5",0.18],["C5",0.18],["D5",0.18],["E5",0.25],
+  ["G5",0.18],["E5",0.18],["D5",0.25],["C5",0.30],
+
+  ["C5",0.18],["D5",0.18],["E5",0.18],["G5",0.25],
+  ["A5",0.18],["G5",0.18],["E5",0.25],["D5",0.18],
+  ["C5",0.18],["E5",0.18],["G5",0.18],["C5",0.30]
+];
+
+function playTone(freq,duration,type="sine",volume=0.045){
+
+  if(!audioCtx) return;
+
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+
+  osc.type=type;
+  osc.frequency.value=freq;
+
+  gain.gain.setValueAtTime(0.0001,audioCtx.currentTime);
+
+  gain.gain.exponentialRampToValueAtTime(
+    volume,
+    audioCtx.currentTime+0.025
+  );
+
+  gain.gain.exponentialRampToValueAtTime(
+    0.0001,
+    audioCtx.currentTime+duration
+  );
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime+duration+0.03);
+}
+
+
+function playMusicBar(){
+
+  if(!musicOn || !audioCtx) return;
+
+  const item=melody[musicStep];
+  const note=item[0];
+  const duration=item[1];
+
+  playTone(
+    notes[note] || notes.C5,
+    duration,
+    "triangle",
+    0.035
+  );
+
+  /* soft bass every 4 beats */
+  if(musicStep % 4 === 0){
+
+    const bassNotes=[
+      notes.C4,
+      notes.G4,
+      notes.A4,
+      notes.F4
+    ];
+
+    playTone(
+      bassNotes[(musicStep/4)%4],
+      0.42,
+      "sine",
+      0.025
+    );
+  }
+
+  /* tiny sparkle sound */
+  if(musicStep % 8 === 4){
+
+    setTimeout(()=>{
+      if(musicOn){
+        playTone(notes.G5,0.12,"sine",0.018);
+      }
+    },100);
+  }
+
+  musicStep++;
+
+  if(musicStep>=melody.length){
+    musicStep=0;
+  }
+
+  musicTimer=setTimeout(
+    playMusicBar,
+    Math.max(230,duration*1000+70)
+  );
+}
+
+
+function startMusic(){
+
+  if(musicOn) return;
+
+  audioCtx=audioCtx ||
+    new(window.AudioContext || window.webkitAudioContext)();
+
+  if(audioCtx.state==="suspended"){
+    audioCtx.resume();
+  }
+
+  musicOn=true;
+  musicStep=0;
+
+  playMusicBar();
+}
+
+
+function stopMusic(){
+
+  musicOn=false;
+
+  if(musicTimer){
+    clearTimeout(musicTimer);
+    musicTimer=null;
+  }
+}
+
+
+/* =========================
+   GAME MUSIC CONTROLS
+========================= */
+
+const originalStartGame=startGame;
+
+startGame=function(){
+
+  originalStartGame();
+  startMusic();
+
+};
+
+
+const originalTogglePause=togglePause;
+
+togglePause=function(){
+
+  originalTogglePause();
+
+  if(paused){
+    stopMusic();
+  }else{
+    startMusic();
+  }
+
+};
+
+
+const originalGoHome=goHome;
+
+goHome=function(){
+
+  stopMusic();
+  originalGoHome();
+
+};
+
+
+const originalNewGame=newGame;
+
+newGame=function(){
+
+  originalNewGame();
+  startMusic();
+
+};
 </script>
 </body>
 </html>
